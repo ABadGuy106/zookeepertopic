@@ -258,7 +258,7 @@ addauth：输入认证授权信息，注册时输入明文密码（登录）但�
 
 #### ACL的构成一
 
-zk的acl通过[scheme:id:permissions]来构成权限列表
+zk的acl通过[scheme ​: id : permissions]来构成权限列表
 
 scheme:代表采用的某种权限机制
 
