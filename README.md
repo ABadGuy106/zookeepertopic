@@ -58,6 +58,8 @@
 
 ## ZK基于特性于基于Linux的ZK客户端命令学习
 
+### 基本命令
+
 通过./zkCli.sh 打开zk的客户端进入命令行后台
 
 ls与ls2命令
@@ -66,9 +68,278 @@ ls与ls2命令
 
 get与stat命令
 
+#### create 命令
+
+```properties
+[zk: localhost:2181(CONNECTED) 0] create /imooc imooc-data
+Created /imooc
+[zk: localhost:2181(CONNECTED) 2] get /imooc
+imooc-data
+cZxid = 0x52
+ctime = Mon Jun 17 16:39:47 CST 2019
+mZxid = 0x52
+mtime = Mon Jun 17 16:39:47 CST 2019
+pZxid = 0x52
+cversion = 0
+dataVersion = 0
+aclVersion = 0
+ephemeralOwner = 0x0
+dataLength = 10
+numChildren = 0
+```
+
+使用-e参数，创建临时节点(当断开创建这个节点的连接时，该节点自动删除)：
+
+```properties
+[zk: localhost:2181(CONNECTED) 3] create -e /imooc/tmp imooc-data
+Created /imooc/tmp
+[zk: localhost:2181(CONNECTED) 4] get /imooc/tmp
+imooc-data
+cZxid = 0x53
+ctime = Mon Jun 17 16:49:23 CST 2019
+mZxid = 0x53
+mtime = Mon Jun 17 16:49:23 CST 2019
+pZxid = 0x53
+cversion = 0
+dataVersion = 0
+aclVersion = 0
+ephemeralOwner = 0x16b64597d790004
+dataLength = 10
+numChildren = 0
+```
+
+使用 -s 参数创建顺序节点(当执行同一条创建命令时，zk会根据执行顺序创建带有顺序的节点)
+
+```properties
+[zk: localhost:2181(CONNECTED) 0] create -s /imooc/sec seq
+Created /imooc/sec0000000001
+[zk: localhost:2181(CONNECTED) 1] create -s /imooc/sec seq
+Created /imooc/sec0000000002
+[zk: localhost:2181(CONNECTED) 2] create -s /imooc/sec seq
+Created /imooc/sec0000000003
+[zk: localhost:2181(CONNECTED) 3] create -s /imooc/sec seq
+Created /imooc/sec0000000004
+```
+
+#### set命令
+
+```properties
+[zk: localhost:2181(CONNECTED) 4] get /imooc
+imooc-data
+cZxid = 0x52
+ctime = Mon Jun 17 16:39:47 CST 2019
+mZxid = 0x52
+mtime = Mon Jun 17 16:39:47 CST 2019
+pZxid = 0x59
+cversion = 6
+dataVersion = 0
+aclVersion = 0
+ephemeralOwner = 0x0
+dataLength = 10
+numChildren = 4
+[zk: localhost:2181(CONNECTED) 5] set /imooc new-data
+cZxid = 0x52
+ctime = Mon Jun 17 16:39:47 CST 2019
+mZxid = 0x5a
+mtime = Mon Jun 17 17:44:07 CST 2019
+pZxid = 0x59
+cversion = 6
+dataVersion = 1
+aclVersion = 0
+ephemeralOwner = 0x0
+dataLength = 8
+numChildren = 4
+[zk: localhost:2181(CONNECTED) 6] get /imooc
+new-data
+cZxid = 0x52
+ctime = Mon Jun 17 16:39:47 CST 2019
+mZxid = 0x5a
+mtime = Mon Jun 17 17:44:07 CST 2019
+pZxid = 0x59
+cversion = 6
+dataVersion = 1
+aclVersion = 0
+ephemeralOwner = 0x0
+dataLength = 8
+numChildren = 4
+```
+
+#### delete命令
+
+```properties
+[zk: localhost:2181(CONNECTED) 7] ls /imooc
+[sec0000000003, sec0000000004, sec0000000001, sec0000000002]
+[zk: localhost:2181(CONNECTED) 8] delete /imooc/sec0000000003
+[zk: localhost:2181(CONNECTED) 9] ls /imooc
+[sec0000000004, sec0000000001, sec0000000002]
+```
+
+### watcher机制
+
+- 针对每个节点的操作，都会有一个监督者 -> watcher
+- 当监控的某个对象(znode)发生了变化，则出发watcher事件
+- zk中的watcher时一次性的，触发后立即销毁
+- 父节点、子节点增删改都能触发其watcher
+- 针对不同类型的操作，触发的watcher事件不同：
+  - (子)节点创建事件
+  - (子)节点删除事件
+  - (子)节点数据变化事件
+
+#### watcher命令学习
+
+通过get path [watch]设置watcher
+
+父节点 增 删 改操作触发watcher
+
+子节点增 删 改操作触发watcher
+
+#### watcher事件类型一
+
+创建父节点触发：NodeCreated
+
+修改父节点数据触发：NodeDataChanged
+
+删除父节点触发：NodeDeleted
+
+#### watcher事件类型二
+
+ls为父节点设置watcher,创建子节点触发：NodeChildrenChanged
+
+```properties
+[zk: localhost:2181(CONNECTED) 13] ls /imooc watch
+[sec0000000004, test2, test, sec0000000001, sec0000000002]
+[zk: localhost:2181(CONNECTED) 14] create /imooc/abd 999
+
+WATCHER::Created /imooc/abd
+
+
+WatchedEvent state:SyncConnected type:NodeChildrenChanged path:/imooc
+```
+
+ls为父节点设置watcher,删除子节点触发：NodeChildrenChaged
+
+```properties
+[zk: localhost:2181(CONNECTED) 0] ls /imooc watch
+[sec0000000004, test2, abd, sec0000000001, sec0000000002]
+[zk: localhost:2181(CONNECTED) 1] delete /imooc/abd
+
+WATCHER::
+[zk: localhost:2181(CONNECTED) 2]
+WatchedEvent state:SyncConnected type:NodeChildrenChanged path:/imooc
+```
+
+ls为父节点设置watcher,修改子节点不触发事件
+
+#### watcher使用场景
+
+统一资源配置
+
+### ACL(access control lists)权限控制
+
+针对节点可以设置相关读写等权限，目的为了保障数据安全性
+
+权限permissions可以指定不同的权限范围以及角色
+
+#### ACL命令行
+
+getAcl：获取某个节点的acl权限信息
+
+```properties
+[zk: localhost:2181(CONNECTED) 8] create /imooc/abc 123
+Created /imooc/abc
+[zk: localhost:2181(CONNECTED) 9] getAcl /imooc/abc
+'world,'anyone
+: cdrwa
+```
+
+setAcl：设置某个节点的acl权限信息
+
+addauth：输入认证授权信息，注册时输入明文密码（登录）但在zk的系统里，密码时以加密的形式存在的
+
+#### ACL的构成一
+
+zk的acl通过[scheme:id:permissions]来构成权限列表
+
+scheme:代表采用的某种权限机制
+
+id:代表允许访问的用户
+
+permissions:权限组合字符串
+
+#### ACL的构成二 - scheme
+
+world:world下只有一个id,即只有一个用户，也就是anyone,那么组合的写法就是 world:anyone:[permissions]
+
+auth:代表认证登录，需要注册用户有权限就可以，形式为 auth:user:passowrd:[permissions]
+
+digest:需要密码加密才能访问，组合形式为 ： digest:username:BASE64(SHA1(password)):[permissions]
+
+​    简而言之，auth与digest的区别就是，前者明文，后者密文
+
+​	setAcl /path auth:lee:lee:cdrwa
+
+​	与
+
+​	setAcl /path digest:lee:BASE64(SHA1(password)) cdrwa
+
+​	是等价的,在通过
+
+​	addauth digest lee:lee 后都能操作指定节点的权限
+
+ip:当设置ip指定的ip地址,此时限制ip进行访问，比如ip:192.168.1.1:[permissions]
+
+super:代表超级管理员，拥有所有的权限
+
+#### ACL的构成三 - permissions
+
+权限字符串缩写 crdwa
+
+​	CREATE:创建子节点
+
+​	READ: 获取节点/子节点
+
+​	DELETE:删除子节点
+
+​	WRITE:设置节点数据
+
+​	ADMIN:设置权限
+
 #### ACL命令行学习
 
 world:anyone:cdrwa
+
+```properties
+[zk: localhost:2181(CONNECTED) 11] getAcl /imooc/abc
+'world,'anyone
+: cdrwa
+[zk: localhost:2181(CONNECTED) 12] setAcl /imooc/abc world:anyone:crwa
+cZxid = 0x65
+ctime = Mon Jun 17 18:42:41 CST 2019
+mZxid = 0x65
+mtime = Mon Jun 17 18:42:41 CST 2019
+pZxid = 0x65
+cversion = 0
+dataVersion = 0
+aclVersion = 1
+ephemeralOwner = 0x0
+dataLength = 3
+numChildren = 0
+[zk: localhost:2181(CONNECTED) 13] getAcl /imooc/abc
+'world,'anyone
+: crwa
+[zk: localhost:2181(CONNECTED) 14] create /imooc/abc/xyz 123
+Created /imooc/abc/xyz
+[zk: localhost:2181(CONNECTED) 15] delete /imooc/abc/xyz
+Authentication is not valid : /imooc/abc/xyz
+```
+
+
+
+
+
+
+
+
 
 
 
