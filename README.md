@@ -258,7 +258,7 @@ addauth：输入认证授权信息，注册时输入明文密码（登录）但�
 
 #### ACL的构成一
 
-zk的acl通过[scheme ​: id : permissions]来构成权限列表
+zk的acl通过[scheme : id : permissions]来构成权限列表
 
 scheme:代表采用的某种权限机制
 
@@ -333,17 +333,149 @@ Created /imooc/abc/xyz
 Authentication is not valid : /imooc/abc/xyz
 ```
 
+auth: user: pwd:cdrwa
 
+digest: user:BASE64(SHA1(pwd)):cdrwa
 
+addauth adigest user:pwd
 
+```properties
+[zk: localhost:2181(CONNECTED) 17] create /name name
+Created /name
+[zk: localhost:2181(CONNECTED) 18] create /name/imooc imooc
+Created /name/imooc
+[zk: localhost:2181(CONNECTED) 19] getAcl /name/imooc
+'world,'anyone
+: cdrwa
+[zk: localhost:2181(CONNECTED) 20] setAcl /name/imooc auth:imooc:imooc:cdrwa
+Acl is not valid : /names/imooc
+[zk: localhost:2181(CONNECTED) 21] addauth digest imooc:imooc
+[zk: localhost:2181(CONNECTED) 23] setAcl /name/imooc auth:imooc:imooc:cdrwa
+cZxid = 0x6b
+ctime = Tue Jun 18 10:51:27 CST 2019
+mZxid = 0x6b
+mtime = Tue Jun 18 10:51:27 CST 2019
+pZxid = 0x6b
+cversion = 0
+dataVersion = 0
+aclVersion = 1
+ephemeralOwner = 0x0
+dataLength = 5
+numChildren = 0
+[zk: localhost:2181(CONNECTED) 24] getAcl /name/imooc
+'digest,'imooc:XwEDaL3J0JQGkRQzM0DpO6zMzZs=
+: cdrwa
+[zk: localhost:2181(CONNECTED) 25] get /name/imooc
+imooc
+cZxid = 0x6b
+ctime = Tue Jun 18 10:51:27 CST 2019
+mZxid = 0x6b
+mtime = Tue Jun 18 10:51:27 CST 2019
+pZxid = 0x6b
+cversion = 0
+dataVersion = 0
+aclVersion = 1
+ephemeralOwner = 0x0
+dataLength = 5
+numChildren = 0
+```
 
+ip:127.0.0.1:cdrwa
 
+```properties
+[zk: localhost:2181(CONNECTED) 5] create /name/ip ip
+Created /name/ip
+[zk: localhost:2181(CONNECTED) 6] getAcl /name/ip
+'world,'anyone
+: cdrwa
+[zk: localhost:2181(CONNECTED) 7] setAcl /name/ip ip:127.0.0.1:cdrwa
+cZxid = 0x71
+ctime = Tue Jun 18 11:05:31 CST 2019
+mZxid = 0x71
+mtime = Tue Jun 18 11:05:31 CST 2019
+pZxid = 0x71
+cversion = 0
+dataVersion = 0
+aclVersion = 1
+ephemeralOwner = 0x0
+dataLength = 2
+numChildren = 0
+[zk: localhost:2181(CONNECTED) 8] getAcl /name/ip
+'ip,'127.0.0.1
+: cdrwa
+```
 
+#### ACL命令行学习二
 
+进入super超级管理员模式
 
+​	Super:
 
+​		1.修改zkServer.sh 增加super管理员
 
+​		将内容：
 
+```shell
+ nohup "$JAVA" "-Dzookeeper.log.dir=${ZOO_LOG_DIR}" "-Dzookeeper.root.logger=${ZOO_LOG4J_PROP}" \
+    -cp "$CLASSPATH" $JVMFLAGS $ZOOMAIN "$ZOOCFG" > "$_ZOO_DAEMON_OUT" 2>&1 < /dev/null &
+```
+
+​		修改为：
+
+```shell
+ nohup "$JAVA" "-Dzookeeper.log.dir=${ZOO_LOG_DIR}" "-Dzookeeper.root.logger=${ZOO_LOG4J_PROP}" "-Dzookeeper.DigestAuthenticationProvider.superDigest=imooc:XwEDaL3J0JQGkRQzM0DpO6zMzZs="\
+    -cp "$CLASSPATH" $JVMFLAGS $ZOOMAIN "$ZOOCFG" > "$_ZOO_DAEMON_OUT" 2>&1 < /dev/null &
+```
+
+​		2.重启zkServer.sh
+
+​		使用超级管理员登录
+
+```properties
+addauth digest imooc:imooc
+```
+
+#### ACL的常用使用场景
+
+开发/测试环境分离，开发者无权操作测试库的节点，只能看
+
+生产环境上控制指定ip的服务可以访问相关节点，防止混乱
+
+#### zookeeper的四字命令 Four Letter Words
+
+zk可以通过它自身提供的简写命令来和服务器进行交互
+
+需要使用nc命令，安装：yum install nc
+
+echo \[commond\]|nc \[ip\]  \[port\]
+
+  \[stat\] 查看zk的状态信息，以及是否mode
+
+```shell
+echo stat | nc 192.168.1.1 2181
+```
+
+ \[ruok\] 查看当前zkServer是否启动，返回imok
+
+ \[dump\] 列出未经处理的会话和临时节点
+
+ \[conf\] 查看服务器配置
+
+ \[cons\] 展示连接到服务器的客户端信息
+
+ \[envi\] 环境变量
+
+ \[mntr\] 监控zk健康信息
+
+ \[wchs\] 展示watch的信息
+
+ \[wchc\] 与\[wchp\] session与wach及path与watch信息，默认情况下这两个命令是不在白名单内所以无法执行，需要修改zoo.cnf配置文件
+
+在文件末尾添加如下内容，重启
+
+```properties
+4lw.commands.whitelist=*
+```
 
 ## 使用zookeeper原生Java API进行客户端开发
 
